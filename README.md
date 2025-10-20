@@ -49,48 +49,82 @@ function doWork() {
 
 ### API
 
+#### Create a context
+
 ```ts
 import { createContext } from "ctxx";
 
-interface ContextOptions<TStore extends object> {
-  // Customize merge behavior for ctx.set / ctx.with (default: shallow assign)
-  merge?: (prev: TStore, patch: Partial<TStore>) => TStore;
-}
+type Store = Record<string, unknown>;
 
-function createContext<TStore extends object>(
-  options?: ContextOptions<TStore>
-): {
-  has(): boolean;
-  get(): Readonly<TStore> | undefined;
-  get<K extends keyof TStore>(key: K): TStore[K] | undefined;
-  set(patch: Partial<TStore>): void;
-  run<R>(initial: TStore, fn: () => R): R;
-  with<R>(patch: Partial<TStore>, fn: () => R): R;
-  bind<F extends (...args: any[]) => any>(fn: F, opts?: { live?: boolean }): F;
-  bindEmitter(emitter: import("node:events").EventEmitter, opts?: { live?: boolean }): void;
-  use(): Readonly<TStore>;
-  middleware: {
-    express: (opts?: {
-      init?: (args: { req: any; res: any }) => TStore | Promise<TStore>;
-      onStart?: (args: { req: any; res: any; store: Readonly<TStore> }) => void;
-      onFinish?: (args: { req: any; res: any; store: Readonly<TStore> }) => void;
-    }) => import("express").RequestHandler;
-  };
-};
+const ctx = createContext<Store>({
+  // optional: customize merge behavior for set()/with() (default is shallow assign)
+  merge(prev, patch) {
+    return Object.assign({}, prev, patch);
+  },
+});
 ```
 
-- **has()**: Is there an active store?
-- **get() / get(key)**: Read the full store or a single key. Returns `undefined` outside a scope.
-- **set(patch)**: Shallow-merge patch into the current store. You can customize via `options.merge`.
-- **run(initial, fn)**: Start a new context scope with the provided initial store.
-- **with(patch, fn)**: Temporarily shadow some keys within a nested scope (uses `merge`).
-- **bind(fn, opts?)**: Bind a function so it executes with the captured context.
-  - Current implementation: behaves as a **live** binding by default (changes after binding are seen).
-  - Pass `{ live: false }`-like behavior by cloning yourself before binding if you want snapshots.
-- **bindEmitter(emitter, opts?)**: Wraps listener registration methods so listeners run inside the bound context.
-  - Also **live** by default; pass `{ live: true }` explicitly for clarity.
-- **use()**: Strict accessor—throws if called without an active context.
-- **middleware.express(opts?)**: Create an Express middleware that starts a context per request.
+#### At a glance
+
+| Method | Signature | Returns | Notes |
+| --- | --- | --- | --- |
+| `has` | `has()` | `boolean` | Is there an active store? |
+| `get` | `get()` / `get(key)` | `store | value | undefined` | Optional accessor; safe outside a scope |
+| `set` | `set(patch)` | `void` | Shallow-merge by default (customizable via `merge`) |
+| `run` | `run(initial, fn)` | `R` | Start a new async context scope |
+| `with` | `with(patch, fn)` | `R` | Nested scope with merged store |
+| `bind` | `bind(fn, opts?)` | `F` | Run `fn` with the bound context; **live by default** |
+| `bindEmitter` | `bindEmitter(emitter, opts?)` | `void` | Listener methods run with bound context; **live by default** |
+| `use` | `use()` | `store` | Strict accessor; throws outside a scope |
+| `middleware.express` | `express(opts?)` | `RequestHandler` | Starts a scope per request |
+
+#### Method snippets
+
+```ts
+// has / get / set
+if (!ctx.has()) {
+  ctx.run({ a: 1 }, () => {/* ... */});
+}
+
+ctx.run({ a: 1, nested: { x: 1 } }, () => {
+  ctx.get();         // { a: 1, nested: { x: 1 } }
+  ctx.get("a");      // 1
+  ctx.set({ a: 2 }); // { a: 2, nested: { x: 1 } }
+});
+
+// with (temporary shadow)
+ctx.run({ a: 1, b: 2 }, () => {
+  ctx.with({ b: 3 }, () => {
+    ctx.get("b"); // 3
+  });
+  ctx.get("b");   // 2
+});
+
+// use (strict)
+ctx.run({ a: 1 }, () => {
+  const store = ctx.use();
+  store.a; // 1
+});
+
+// bind (callbacks)
+let bound: () => number;
+ctx.run({ x: 1 }, () => {
+  bound = ctx.bind(() => ctx.get("x") ?? -1); // live by default
+  ctx.set({ x: 2 });
+});
+bound(); // 2
+
+// bindEmitter (EventEmitter)
+import { EventEmitter } from "node:events";
+const emitter = new EventEmitter();
+ctx.run({ x: 1 }, () => {
+  ctx.bindEmitter(emitter); // live by default
+  emitter.on("tick", () => {
+    console.log(ctx.get("x")); // 2
+  });
+  ctx.set({ x: 2 });
+});
+```
 
 ### Merge behavior
 
