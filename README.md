@@ -1,16 +1,16 @@
-## nctx — Typed AsyncLocalStorage context for Node.js
+## ctxx — Typed AsyncLocalStorage context for Node.js
 
 Lightweight, typed context built on Node's `AsyncLocalStorage`. Manage request-scoped state, propagate values across async boundaries, and integrate with frameworks like Express.
 
 ### Install
 
 ```bash
-npm i nctx
+npm i ctxx
 ```
 
 Requires Node >= 18.17.
 
-### Why nctx?
+### Why ctxx?
 
 - **Typed**: Generic store with strong TypeScript types.
 - **Simple**: `run`, `get`, `set`, `with`, `use`—small API that mirrors React-like ergonomics.
@@ -20,7 +20,7 @@ Requires Node >= 18.17.
 ### Quick start
 
 ```ts
-import { createContext } from "nctx";
+import { createContext } from "ctxx";
 
 type Store = {
   requestId?: string;
@@ -50,7 +50,7 @@ function doWork() {
 ### API
 
 ```ts
-import { createContext } from "nctx";
+import { createContext } from "ctxx";
 
 interface ContextOptions<TStore extends object> {
   // Customize merge behavior for ctx.set / ctx.with (default: shallow assign)
@@ -108,7 +108,7 @@ ctx.run({ a: 1, nested: { x: 1 } }, () => {
 Provide a custom `merge` to implement deep merge if desired:
 
 ```ts
-import { createContext } from "nctx";
+import { createContext } from "ctxx";
 
 const ctx = createContext<{ nested: { x?: number; y?: number } }>({
   merge(prev, patch) {
@@ -124,7 +124,7 @@ const ctx = createContext<{ nested: { x?: number; y?: number } }>({
 
 ```ts
 import express from "express";
-import { createContext } from "nctx";
+import { createContext } from "ctxx";
 
 type Store = { reqId?: string; userId?: string };
 const ctx = createContext<Store>();
