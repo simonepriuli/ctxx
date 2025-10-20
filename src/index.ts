@@ -10,7 +10,6 @@ type ReadonlyDeep<T> = {
 export interface ContextOptions<TStore extends object> {
   /**
    * Merge strategy for ctx.set / ctx.with (default: shallow assign).
-   * You could swap to deep merge if you want.
    */
   merge?: (prev: TStore, patch: Partial<TStore>) => TStore;
 }
@@ -119,8 +118,6 @@ export function createContext<TStore extends object>(
     const next = merge(current ?? ({} as TStore), patch as TStore);
     return als.run(structuredClone(next), fn);
   }
-
-  // Replace your current bind/bindEmitter with this:
 
   /** Bind a function to the *current* ALS store (snapshot by default). */
   function bind<F extends (...args: any[]) => any>(
